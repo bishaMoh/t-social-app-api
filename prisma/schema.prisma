@@ -12,16 +12,24 @@ datasource db {
   provider = "postgresql"
 }
 
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
-  id         Int        @id @default(autoincrement())
-  username   String     @unique
-  name       String
-  bio        String?
-  password   String
-  createdAt  DateTime   @default(now())
+  id             Int        @id @default(autoincrement())
+  username       String     @unique
+  name           String
+  bio            String?
+  profilePicture String?
+  password       String
+  createdAt      DateTime   @default(now())
 
   tees       Tees[]
   likes      Likes[]
+  comments   Comment[]
 
   followers  Follow[]   @relation("UserFollowers")
   followings Follow[]   @relation("UserFollowings")
@@ -34,6 +42,7 @@ model Tees {
   published Boolean    @default(false)
   createdAt DateTime   @default(now())
   likes     Likes[]
+  comments  Comment[]
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)   
 }
@@ -49,10 +58,22 @@ model Likes {
   @@unique([userId, tId])
 }
 
+model Comment {
+  id        Int      @id @default(autoincrement())
+  text      String
+  userId    Int
+  teeId     Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tee  Tees @relation(fields: [teeId], references: [id], onDelete: Cascade)
+}
+
 model Follow {
   id          Int          @id @default(autoincrement())
   followerId  Int
   followingId Int 
+  status      FollowStatus @default(PENDING)
   createdAt   DateTime     @default(now())
 
   follower    User         @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)

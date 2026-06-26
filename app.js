@@ -3,8 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import passport from 'passport';
 import session from 'express-session';
-import configurePassport from './config/passport.js'; 
+import configurePassport from './config/passport.js';
 import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
+import followsRouter from './routes/follows.js';
 import teesRouter from './routes/tees.js';
 
 const app = express();
@@ -32,8 +34,16 @@ app.get('/api/auth/github/callback',
     }
 );
 
-// routes
-app.use('/api/users', authRouter);
+// Auth: register/login + GitHub OAuth (github routes defined above)
+app.use('/api/auth', authRouter);
+
+// Users: profiles, directory, /me (all JWT-protected)
+app.use('/api/users', usersRouter);
+
+// Follows: requests, accept/reject, followers/following lists
+app.use('/api/follows', followsRouter);
+
+// Tees: feed, CRUD, nested likes & comments
 app.use('/api/tees', teesRouter);
 
 app.use((err, req, res, next) => {

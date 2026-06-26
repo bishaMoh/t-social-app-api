@@ -1,21 +1,43 @@
 import prisma from "../lib/prisma.js";
 
+// Rich include for tees: author info, like count, comments with authors
+const teeInclude = {
+    user: {
+        select: {
+            id: true,
+            name: true,
+            username: true,
+            profilePicture: true
+        }
+    },
+    comments: {
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    profilePicture: true
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    },
+    _count: {
+        select: { likes: true, comments: true }
+    }
+};
+
 //get AllTees
 export const getAllTees = async (req, res, next) => {
     try{ 
         const tees = await prisma.tees.findMany({
-        include: {
-            user: {
-                select: {
-                    name: true,
-                }
-            }
-        },
-        orderBy: {createdAt: 'desc'}
-    })
-    res.json(tees)
+            include: teeInclude,
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(tees);
     }catch(err) {
-    next(err)
+        next(err);
     }
 }
 
@@ -23,21 +45,60 @@ export const getAllTees = async (req, res, next) => {
 export const getPublishedTees = async (req, res, next) => {
     try {
         const tees = await prisma.tees.findMany({
-        where: { published: true},
-        include: {
-            user: {
-                select: {
-                    name: true,
-                    username: true
-                }
-            }
-        },
-        orderBy: {createdAt: 'desc'}
-    })
-    res.json(tees)
+            where: { published: true },
+            include: teeInclude,
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(tees);
     }catch(err) {
-        next(err)
+        next(err);
     }   
+}
+
+// get feed: posts from current user + users they follow (accepted)
+export const getFeed = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+
+        // Get IDs of users the current user is following (accepted)
+        const following = await prisma.follow.findMany({
+            where: {
+                followerId: userId,
+                status: 'ACCEPTED'
+            },
+            select: { followingId: true }
+        });
+
+        const followingIds = following.map(f => f.followingId);
+        // Include the current user's own posts
+        const feedUserIds = [userId, ...followingIds];
+
+        const tees = await prisma.tees.findMany({
+            where: {
+                userId: { in: feedUserIds },
+                published: true
+            },
+            include: {
+                ...teeInclude,
+                likes: {
+                    where: { userId },
+                    select: { id: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        // Add a `likedByMe` flag to each tee
+        const feed = tees.map(tee => ({
+            ...tee,
+            likedByMe: tee.likes.length > 0,
+            likes: undefined // remove the raw likes array, we have _count
+        }));
+
+        res.json(feed);
+    } catch(err) {
+        next(err);
+    }
 }
 
 //create new t
@@ -53,13 +114,14 @@ export const newT = async (req, res, next) => {
         const t = await prisma.tees.create({
             data:{
                 text,
-                published: published || false,
+                published: published !== undefined ? published : true,
                 userId,
-            }
+            },
+            include: teeInclude
         })
         res.status(201).json({
             message: 't created',
-            text
+            tee: t
         })
     }catch(err) {
         next(err)
@@ -89,7 +151,8 @@ export const editT = async (req, res, next) => {
             data: {
                 text: text !== undefined ? text: t.text,
                 published: published !== undefined ? published: t.published
-            }
+            },
+            include: teeInclude
         })
         res.status(201).json({ edited })
     }catch(err) {
@@ -120,7 +183,7 @@ export const deleteT = async (req, res, next) => {
         })
 
         res.status(201).json({ 
-            messege: 't deleted successfully'
+            message: 't deleted successfully'
         })
     }catch (err) {
         next(err)
