@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         Int        @id @default(autoincrement())
+  username   String     @unique
+  name       String
+  bio        String?
+  password   String
+  createdAt  DateTime   @default(now())
+
+  tees       Tees[]
+  likes      Likes[]
+
+  followers  Follow[]   @relation("UserFollowers")
+  followings Follow[]   @relation("UserFollowings")
+}
+
+model Tees {
+  id        Int        @id @default(autoincrement())
+  text      String 
+  userId    Int
+  published Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  likes     Likes[]
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)   
+}
+
+model Likes {
+  id     Int    @id @default(autoincrement())
+  userId Int 
+  tId    Int
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)   
+  t      Tees   @relation(fields: [tId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tId])
+}
+
+model Follow {
+  id          Int          @id @default(autoincrement())
+  followerId  Int
+  followingId Int 
+  createdAt   DateTime     @default(now())
+
+  follower    User         @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User         @relation("UserFollowings", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
