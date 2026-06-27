@@ -4,6 +4,7 @@ import {
     getAllTees,
     getPublishedTees,
     getFeed,
+    getForYouFeed,
     newT,
     editT,
     deleteT
@@ -17,6 +18,7 @@ const requireAuth = passport.authenticate('jwt', { session: false})
 router.get("/all", getAllTees)
 router.get("/", getPublishedTees)
 router.get("/feed", requireAuth, getFeed)
+router.get("/feed/foryou", requireAuth, getForYouFeed)
 router.post("/newt", requireAuth, newT)
 router.put("/:id", requireAuth, editT)
 router.delete("/:id", requireAuth, deleteT)

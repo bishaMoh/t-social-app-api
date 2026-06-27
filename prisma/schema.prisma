@@ -27,12 +27,62 @@ model User {
   password       String
   createdAt      DateTime   @default(now())
 
-  tees       Tees[]
-  likes      Likes[]
-  comments   Comment[]
+  tees            Tees[]
+  likes           Likes[]
+  comments        Comment[]
+  preferences     UserPreferences?
+  participants    ConversationParticipant[]
+  messages        Message[]
 
   followers  Follow[]   @relation("UserFollowers")
   followings Follow[]   @relation("UserFollowings")
+}
+
+model UserPreferences {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @unique
+  feedMode         String   @default("following")
+  interests        String[] @default([])
+  showTrending     Boolean  @default(true)
+  compactFeed      Boolean  @default(false)
+  notifyMessages   Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id           Int      @id @default(autoincrement())
+  directKey    String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             Int          @id @default(autoincrement())
+  conversationId Int
+  userId         Int
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             Int      @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  text           String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 model Tees {

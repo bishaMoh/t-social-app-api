@@ -101,6 +101,65 @@ export const getFeed = async (req, res, next) => {
     }
 }
 
+// Personalized "For You" feed: trending + interest-based discovery
+export const getForYouFeed = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+
+        const preferences = await prisma.userPreferences.findUnique({
+            where: { userId },
+        });
+        const interests = preferences?.interests || [];
+
+        const following = await prisma.follow.findMany({
+            where: { followerId: userId, status: 'ACCEPTED' },
+            select: { followingId: true },
+        });
+        const followingIds = following.map((f) => f.followingId);
+
+        const tees = await prisma.tees.findMany({
+            where: {
+                published: true,
+                userId: { not: userId },
+            },
+            include: {
+                ...teeInclude,
+                likes: {
+                    where: { userId },
+                    select: { id: true },
+                },
+                _count: {
+                    select: { likes: true, comments: true },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+        });
+
+        const scored = tees.map((tee) => {
+            let score = tee._count.likes * 2 + tee._count.comments;
+            if (!followingIds.includes(tee.userId)) score += 5;
+            if (interests.length > 0) {
+                const lowerText = tee.text.toLowerCase();
+                for (const interest of interests) {
+                    if (lowerText.includes(interest.toLowerCase())) score += 10;
+                }
+            }
+            return {
+                ...tee,
+                likedByMe: tee.likes.length > 0,
+                likes: undefined,
+                score,
+            };
+        });
+
+        scored.sort((a, b) => b.score - a.score || new Date(b.createdAt) - new Date(a.createdAt));
+        res.json(scored.slice(0, 40));
+    } catch (err) {
+        next(err);
+    }
+}
+
 //create new t
 export const newT = async (req, res, next) => {
     try {
